@@ -5,6 +5,7 @@ import (
 	"log"
 	"minirpc"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -18,27 +19,17 @@ func (f Foo) Sum(args Args, reply *int) error {
 	return nil
 }
 
-func startServer(addr chan string) {
+func startServer(addrCh chan string) {
 	var foo Foo
-	// 注册 Foo 到 Server 并启动 RPC 服务
-	if err := minirpc.Register(&foo); err != nil {
-		log.Fatal("register error: ", err)
-	}
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		log.Fatal("network error: ", err)
-	}
-	log.Println("start rpc server on", l.Addr())
-	addr <- l.Addr().String()
-	minirpc.Accept(l)
+	l, _ := net.Listen("tcp", ":9999")
+	_ = minirpc.Register(&foo)
+	minirpc.HandleHTTP()
+	addrCh <- l.Addr().String()
+	_ = http.Serve(l, nil)
 }
 
-func main() {
-	log.SetFlags(0)
-	addr := make(chan string)
-	// 使用信道 addr 确保服务端端口监听成功，客户端再请求
-	go startServer(addr)
-	client, _ := minirpc.Dial("tcp", <-addr)
+func call(addrCh chan string) {
+	client, _ := minirpc.DialHTTP("tcp", <-addrCh)
 	defer func() { _ = client.Close() }()
 
 	time.Sleep(time.Second)
@@ -57,4 +48,11 @@ func main() {
 		}(i)
 	}
 	wg.Wait()
+}
+
+func main() {
+	log.SetFlags(0)
+	ch := make(chan string)
+	go call(ch)
+	startServer(ch)
 }
