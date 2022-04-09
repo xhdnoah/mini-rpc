@@ -20,7 +20,7 @@ type MiniRegistry struct {
 
 type ServerItem struct {
 	Addr  string
-	start time.Time
+	start time.Time // 服务启动时间
 }
 
 const (
@@ -56,7 +56,7 @@ func (r *MiniRegistry) aliveServers() []string {
 	defer r.mu.Unlock()
 	var alive []string
 	for addr, s := range r.servers {
-		if r.timeout == 0 || s.start.Add(r.timeout).After(time.Now()) {
+		if r.timeout == 0 || s.start.Add(r.timeout).After(time.Now()) { // 未过期
 			alive = append(alive, addr)
 		} else {
 			delete(r.servers, addr)
